@@ -2,7 +2,6 @@
 
 import os
 import sys
-from config.settings import APP_NAME, VERSION
 
 # 使用 sys.argv[0] 來獲取正在執行的指令碼路徑 (即 .spec 檔案的路徑)
 SPEC_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -35,7 +34,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="{APP_NAME}",
+    name='直誠科餘自動化',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

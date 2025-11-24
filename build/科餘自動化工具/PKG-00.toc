@@ -1,4 +1,4 @@
-('C:\\Users\\spc\\PyCharmMiscProject\\ku\\build\\科餘自動化工具\\科餘自動化工具.pkg',
+('C:\\Users\\spc\\PyCharmMiscProject\\ku\\build\\科餘自動化工具\\直誠科餘自動化.pkg',
  {'BINARY': True,
   'DATA': True,
   'EXECUTABLE': True,
