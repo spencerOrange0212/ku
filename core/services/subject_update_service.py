@@ -10,7 +10,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 from copy import copy
 from openpyxl.styles import PatternFill
-
+import pandas as pd
 
 class SubjectUpdateService:
     """
@@ -33,6 +33,7 @@ class SubjectUpdateService:
 
         # 紀錄分類帳中「含非法符號」的科目名稱
         self.invalid_items = []
+
     def _check_cancel(self):
         """隨時可以在迴圈裡呼叫，一旦使用者按了停止就丟 Exception 中斷流程"""
         if self.app is not None and getattr(self.app, "cancel_requested", False):
@@ -144,6 +145,18 @@ class SubjectUpdateService:
 
         return latest_rows, zero_items_but_kept
 
+    def _get_active_items(self, valid_rows):
+        """
+        傳回區間內所有「有明細」的科目名稱（d_val）
+        valid_rows = [(row_num, a_val, d_val, i_val), ...]
+        """
+        items = set()
+        for row_number, a_val, d_val, i_val in valid_rows:
+            d = d_val.strip() if isinstance(d_val, str) else None
+            if d:
+                items.add(d)
+        return items
+
     def _check_item_in_sheet(self, item_code: str) -> bool:
         """檢查指定項目代號是否存在於工作表中。"""
         sheetnames = [
@@ -193,7 +206,7 @@ class SubjectUpdateService:
     # 🧩 Step 4️⃣ 餘額比對
     # ---------------------------------------------------------
     def _compare_balance(self, ws, ledger_i, target_month):
-        """比對工作表中的最後一筆 I 欄餘額（A、C、D、I 欄需有值）"""
+        """比對工作表中的最後一筆 I 欄餘額（A、C、D、I 欄不可為NONE）"""
         matched_rows = []
 
         for row in ws.iter_rows(min_row=2):
@@ -215,9 +228,9 @@ class SubjectUpdateService:
         same = abs(ledger_i - sheet_i) < 0.001
         return sheet_row, sheet_i, same
 
-
     # 🔸 統一管理 Excel 禁用的工作表字元
     INVALID_SHEET_CHARS = (":", "\\", "/", "?", "*", "[", "]")
+
     # ---------------------------------------------------------
     # 🧩 Step 5️⃣ 組合訊息
     # ---------------------------------------------------------
@@ -268,16 +281,20 @@ class SubjectUpdateService:
             }
         }
 
-    # ---------------------------------------------------------
-    # 🧩 Step 6️⃣ 主比對函式
-    # ---------------------------------------------------------
+        # ---------------------------------------------------------
+        # 🧩 Step 6️⃣ 主比對函式 (修正版)
+        # ---------------------------------------------------------
+
     def _check_sheet_existence_and_print(self, latest_rows, target_month, zero_items_but_kept=None):
         """比對分頁是否存在並印出結果"""
         inconsistent = []
-        sheetnames = [
-            s.title.replace(" ", "").replace("　", "")
+
+        # 🔴 修改 1：建立 { '去空白名稱': '真正的分頁名稱' } 的對照表
+        # 這樣就算分頁名稱有多餘空白，我們也能透過乾淨的名稱找到它真正的 Key
+        clean_to_real_map = {
+            s.title.replace(" ", "").replace("　", ""): s.title
             for s in self.wb_values.worksheets if s.sheet_state == "visible"
-        ]
+        }
 
         if not latest_rows:
             msg = f"❌ 沒有符合條件的資料（<= {target_month}）"
@@ -285,12 +302,24 @@ class SubjectUpdateService:
             return {"status": "error", "message": msg, "details": {}}
 
         for d_val, (ledger_row, ledger_date, ledger_i) in sorted(latest_rows.items(), key=lambda x: x[1][0]):
+            # 這是分類帳上的科目名稱（已去除前後空白，但中間可能有空白）
             clean_name = d_val.replace(" ", "").replace("　", "")
-            if clean_name not in sheetnames:
+
+            # 🔴 修改 2：改查對照表，而不是查 list
+            if clean_name not in clean_to_real_map:
                 inconsistent.append(d_val)
                 continue
 
-            ws = self.wb_values[d_val]
+            # 🔴 修改 3：取得「真正的分頁名稱」來開啟 Worksheet
+            real_sheet_name = clean_to_real_map[clean_name]
+
+            try:
+                ws = self.wb_values[real_sheet_name]
+            except KeyError:
+                # 雙重保險：理論上不會發生，但如果發生了就視為找不到
+                inconsistent.append(d_val)
+                continue
+
             sheet_row, sheet_i, same = self._compare_balance(ws, ledger_i, target_month)
             if sheet_row is None or not same:
                 inconsistent.append(d_val)
@@ -396,7 +425,7 @@ class SubjectUpdateService:
             month_int = int(m.group(1) + m.group(2))
             if not (start_int < month_int <= end_int):
                 continue
-
+            #
             if d_val in subject_map:
                 records.append((d_val, row[:9]))
 
@@ -414,15 +443,44 @@ class SubjectUpdateService:
 
         for subject_code, row_cells in records:
 
-            # ------ 工作表存在？ ------
-            if subject_code not in self.wb.sheetnames:
-                ws = self.wb.create_sheet(subject_code)
+            # ------ 判斷工作表名稱 ------
+            # 先去掉空白比對
+            clean_subject = subject_code.replace(" ", "").replace("　", "")
 
-                # 複製欄寬
+            # 先找是否有隱藏的同名分頁
+            hidden_sheets = {s.title.replace(" ", "").replace("　", ""): s for s in self.wb.worksheets if
+                             s.sheet_state == "hidden"}
+            visible_sheets = {s.title.replace(" ", "").replace("　", ""): s for s in self.wb.worksheets if
+                              s.sheet_state == "visible"}
+
+            if clean_subject in visible_sheets:
+                # 已存在可見分頁，直接使用
+                ws = visible_sheets[clean_subject]
+            elif clean_subject in hidden_sheets:
+                # 已存在隱藏分頁，加 @ 後建立新的分頁
+                new_name = f"@{subject_code}"
+                if new_name in self.wb.sheetnames:
+                    ws = self.wb[new_name]  # 已有 @ 分頁，直接使用
+                else:
+                    ws = self.wb.create_sheet(new_name)
+                    # 複製欄寬與標頭列
+                    for col in ledger_ws_src.column_dimensions:
+                        ws.column_dimensions[col].width = ledger_ws_src.column_dimensions[col].width
+                    for col_idx, cell in enumerate(ledger_ws_src[1], start=1):
+                        new_cell = ws.cell(row=1, column=col_idx, value=cell.value)
+                        if cell.has_style:
+                            new_cell.font = copy(cell.font)
+                            new_cell.border = copy(cell.border)
+                            new_cell.fill = copy(cell.fill)
+                            new_cell.number_format = copy(cell.number_format)
+                            new_cell.protection = copy(cell.protection)
+                            new_cell.alignment = copy(cell.alignment)
+                    self._log(f"🆕 建立新隱藏分頁並複製完整標頭：{new_name}")
+            else:
+                # 完全不存在，直接建立原名分頁
+                ws = self.wb.create_sheet(subject_code)
                 for col in ledger_ws_src.column_dimensions:
                     ws.column_dimensions[col].width = ledger_ws_src.column_dimensions[col].width
-
-                # 複製標頭列
                 for col_idx, cell in enumerate(ledger_ws_src[1], start=1):
                     new_cell = ws.cell(row=1, column=col_idx, value=cell.value)
                     if cell.has_style:
@@ -432,20 +490,25 @@ class SubjectUpdateService:
                         new_cell.number_format = copy(cell.number_format)
                         new_cell.protection = copy(cell.protection)
                         new_cell.alignment = copy(cell.alignment)
-
                 self._log(f"🆕 建立新工作表並複製完整標頭：{subject_code}")
-
-            else:
-                ws = self.wb[subject_code]
 
             # ------ 找最後一列 ------
             last_row = 1
             for r in range(2, ws.max_row + 1):
-                a = ws[f"A{r}"].value
-                c = ws[f"C{r}"].value
-                d = ws[f"D{r}"].value
-                i = ws[f"I{r}"].value
-                if all([a, c, d, i]):
+                a_val = ws[f"A{r}"].value
+                c_val = ws[f"C{r}"].value
+                d_val = ws[f"D{r}"].value
+                i_val = ws[f"I{r}"].value
+
+                # 檢查 A, C, D 欄位：必須有內容且不是空字串/空白
+                a_is_valid = a_val is not None and str(a_val).strip() != ""
+                c_is_valid = c_val is not None and str(c_val).strip() != ""
+                d_is_valid = d_val is not None and str(d_val).strip() != ""
+
+                # 檢查 I 欄位：必須有值 (is not None)，數值可以是 0 (因為 0 is not None 是 True)
+                i_is_valid = i_val is not None
+
+                if a_is_valid and c_is_valid and d_is_valid and i_is_valid:
                     last_row = r
 
             # ------ 插入新資料 ------
