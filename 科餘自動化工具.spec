@@ -34,7 +34,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='直誠科餘自動化',
+    name='科餘自動化工具',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

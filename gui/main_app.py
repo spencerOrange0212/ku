@@ -5,10 +5,10 @@ from tkinter import filedialog, messagebox
 import os, sys
 from customtkinter import CTkImage
 
-from ku.config.settings import VERSION, APP_NAME
-from ku.core.actions.confirm_action import do_actions_sequential
-from ku.core.controllers.excel_controller import ExcelController
-from ku.core.validators.confirm_action import validate_before_action
+from config.settings import VERSION, APP_NAME
+from core.actions.confirm_action import do_actions_sequential
+from core.controllers.excel_controller import ExcelController
+from core.validators.confirm_action import validate_before_action
 
 
 class ExcelToolApp(ctk.CTk):
