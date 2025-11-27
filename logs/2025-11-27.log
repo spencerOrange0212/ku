@@ -1,0 +1,4 @@
+2025-11-27 10:53:25,137 - INFO - root - Log 紀錄系統已啟動。今天的 Log 檔案路徑: C:\Users\spc\PyCharmMiscProject\ku\logs\2025-11-27.log
+2025-11-27 10:53:25,138 - INFO - root - 應用程式版本: 科餘自動化工具 v1.11.25.0
+2025-11-27 10:53:25,164 - INFO - root - 啟動 CustomTkinter 主事件迴圈...
+2025-11-27 10:55:10,373 - INFO - root - 應用程式正常關閉。
