@@ -192,7 +192,6 @@ class SubjectUpdateService:
                 return False
             a_month_int = target_int  # 可以視為最新月份
         try:
-            float(b_val)
             float(i_val)
         except (TypeError, ValueError):
             return False
