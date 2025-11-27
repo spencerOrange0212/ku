@@ -5,10 +5,10 @@ from tkinter import filedialog, messagebox
 import os, sys
 from customtkinter import CTkImage
 
-from config.settings import APP_NAME, VERSION
-from core.actions.confirm_action import do_actions_sequential
-from core.controllers.excel_controller import ExcelController
-from gui.widgets.memory_combobox import MemoryComboBox
+from ku.config.settings import VERSION, APP_NAME
+from ku.core.actions.confirm_action import do_actions_sequential
+from ku.core.controllers.excel_controller import ExcelController
+from ku.core.validators.confirm_action import validate_before_action
 
 
 class ExcelToolApp(ctk.CTk):
@@ -68,7 +68,7 @@ class ExcelToolApp(ctk.CTk):
         ctk.CTkEntry(top_frame, textvariable=self.make_var, width=120).grid(row=3, column=1, padx=5)
 
         # 🏢 統一編號記憶式下拉選單
-        from gui.widgets.memory_combobox import MemoryComboBox  # ← 確認有這行
+        from ku.gui.widgets.memory_combobox import MemoryComboBox  # ← 確認有這行
 
         self.tax_id_box = MemoryComboBox(top_frame, file_path="tax_id_memory.json")
         self.tax_id_box.grid(row=3, column=2, padx=5, sticky="w")
@@ -224,13 +224,14 @@ class ExcelToolApp(ctk.CTk):
             tasks.append(("delete_details", "🗑️ 科目明細刪除"))
 
         # 3️⃣ 先做一次整體驗證
-        from core.validators.confirm_action import validate_before_action
+
 
         ok, msg = validate_before_action(
             file_path=getattr(self.controller, "file_path", None),
             tax_id=self.tax_id_box.get(),
             make_month=self.make_var.get(),
-            latest_month=self.latest_var.get()
+            latest_month=self.latest_var.get(),
+            tasks = [task[0] for task in tasks]  # 只傳任務代號列表
         )
         if not ok:
             messagebox.showwarning("錯誤", msg)
