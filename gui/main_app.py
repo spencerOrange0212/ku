@@ -59,16 +59,18 @@ class ExcelToolApp(ctk.CTk):
         ctk.CTkLabel(top_frame, text="📅 製作科餘時間（民國年月）").grid(row=2, column=1, padx=5, pady=5)
         ctk.CTkLabel(top_frame, text="🏢 統一編號").grid(row=2, column=2, padx=5, pady=5)
 
-        # 變數宣告
-        self.latest_var = ctk.StringVar(value="11406")
-        self.make_var = ctk.StringVar(value="11408")
+        # 變數宣告改成 MemoryEntry
+        from gui.widgets.MemoryEntry import MemoryEntry  # 假設你把上次的 MemoryEntry 寫在這個檔案
 
-        # 輸入框
-        ctk.CTkEntry(top_frame, textvariable=self.latest_var, width=120).grid(row=3, column=0, padx=5)
-        ctk.CTkEntry(top_frame, textvariable=self.make_var, width=120).grid(row=3, column=1, padx=5)
+        self.latest_var = MemoryEntry(top_frame, key="latest_month", default="")
+        self.latest_var.grid(row=3, column=0, padx=5)
+
+        self.make_var = MemoryEntry(top_frame, key="make_month", default="")
+        self.make_var.grid(row=3, column=1, padx=5)
+
 
         # 🏢 統一編號記憶式下拉選單
-        from ku.gui.widgets.memory_combobox import MemoryComboBox  # ← 確認有這行
+        from gui.widgets.memory_combobox import MemoryComboBox  # ← 確認有這行
 
         self.tax_id_box = MemoryComboBox(top_frame, file_path="tax_id_memory.json")
         self.tax_id_box.grid(row=3, column=2, padx=5, sticky="w")
