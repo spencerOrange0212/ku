@@ -1,3 +1,4 @@
+import sys
 from tkinter import messagebox
 
 from openpyxl import load_workbook
@@ -96,6 +97,7 @@ class SubjectUpdateService:
 
             a_val = str(row[0].value).strip() if row[0].value else ""
             d_val_raw = str(row[3].value).strip() if row[3].value else ""
+            c_val = str(row[2].value).strip() if row[2].value else ""
             row_number = row[0].row
 
             # 🔴 D 欄科目名稱若含非法字元 → 記錄起來，不讓它進入後續流程
@@ -107,7 +109,7 @@ class SubjectUpdateService:
             d_val = d_val_raw
             i_val = float(row[8].value)
 
-            valid_rows.append((row_number, a_val, d_val, i_val))
+            valid_rows.append((row_number, a_val, d_val, i_val,c_val))
 
         return valid_rows
 
@@ -122,8 +124,8 @@ class SubjectUpdateService:
           - 若該項目存在於工作表 → 保留並標記
         """
         rows_by_item = defaultdict(list)
-        for row_number, a_val, d_val, i_val in valid_rows:
-            rows_by_item[d_val].append((row_number, a_val, i_val))
+        for row_number, a_val, d_val, i_val ,c_val in valid_rows:
+            rows_by_item[d_val].append((row_number, a_val, i_val,c_val))
 
         latest_rows = {}
         zero_items_but_kept = []
@@ -131,7 +133,7 @@ class SubjectUpdateService:
         for d_val, rows in rows_by_item.items():
             self._check_cancel()  # ⭐ 加這行
             rows.sort(key=lambda x: x[0])
-            row_number, a_val, i_val = rows[-1]
+            row_number, a_val, i_val ,c_val= rows[-1]
 
             if i_val is None or float(i_val) == 0:
                 if not self._check_item_in_sheet(d_val):
@@ -141,7 +143,7 @@ class SubjectUpdateService:
                     zero_items_but_kept.append(d_val)
                     self._log(f"⚠️ 項目【{d_val}】最後餘額為 0，但仍存在於工作表，已保留。")
 
-            latest_rows[d_val] = (row_number, a_val, i_val)
+            latest_rows[d_val] = (row_number, a_val, i_val, c_val)
 
         return latest_rows, zero_items_but_kept
 
@@ -173,7 +175,6 @@ class SubjectUpdateService:
         """檢查單列是否符合條件"""
         row_num = row[0].row
         a_val = str(row[0].value).strip() if row[0].value else ""
-        b_val = row[1].value
         c_val = str(row[2].value).strip() if row[2].value else ""
         d_val = str(row[3].value).strip() if row[3].value else ""
         i_val = row[8].value
@@ -215,7 +216,16 @@ class SubjectUpdateService:
             d_val = str(row[3].value).strip() if row[3].value else ""
             i_val = row[8].value
 
-            if not a_val or not c_val or not d_val or i_val in (None, ""):
+            # A、C、D 欄必須有值（空字串或 None 都算空）
+            if a_val is None or str(a_val).strip() == "":
+                continue
+            if c_val is None or str(c_val).strip() == "":
+                continue
+            if d_val is None or str(d_val).strip() == "":
+                continue
+
+            # I欄必須有值，可以是 0，但不能是 None 或空字串
+            if i_val is None or str(i_val).strip() == "":
                 continue
 
             matched_rows.append((row[0].row, float(i_val)))
@@ -261,7 +271,7 @@ class SubjectUpdateService:
         if inconsistent:
             parts.append(
                 f"⚠️ 以下會計項目之分頁餘額與文中系統目前 {target_month} 月餘額不符，"
-                f"請先確認餘額數或分頁名稱後再重新執行：\n  " + "、".join(sorted(set(inconsistent)))
+                f"請先確認餘額數或分頁名稱後再重新執行：\n  " + "、".join(list(dict.fromkeys(inconsistent)))
             )
 
         # ✅ 全部都沒問題，才印出 ✅
@@ -300,7 +310,7 @@ class SubjectUpdateService:
             self._log(msg)
             return {"status": "error", "message": msg, "details": {}}
 
-        for d_val, (ledger_row, ledger_date, ledger_i) in sorted(latest_rows.items(), key=lambda x: x[1][0]):
+        for d_val, (ledger_row, ledger_date, ledger_i, ledger_c) in  sorted(latest_rows.items(), key=lambda x: int(x[1][3])) :
             # 這是分類帳上的科目名稱（已去除前後空白，但中間可能有空白）
             clean_name = d_val.replace(" ", "").replace("　", "")
 
@@ -390,7 +400,7 @@ class SubjectUpdateService:
                     break  # 移除一次即可，避免重複
 
             return text
-
+        # 可能要改
         for row in sheet.iter_rows(min_row=2):
             a_val = clean(row[0].value)
             b_val = clean(row[1].value)
@@ -427,6 +437,7 @@ class SubjectUpdateService:
             #
             if d_val in subject_map:
                 records.append((d_val, row[:9]))
+        self._log(f"找到要貼入的紀錄：{[(d_val, [c.value for c in row[:9]]) for d_val, row in records]}")
 
         self._log(f"📗 找到 {len(records)} 筆新資料。")
         return records
