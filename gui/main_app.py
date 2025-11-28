@@ -8,16 +8,14 @@ from customtkinter import CTkImage
 from config.settings import VERSION, APP_NAME
 from core.actions.confirm_action import do_actions_sequential
 from core.controllers.excel_controller import ExcelController
+from core.tool import resource_path
 from core.validators.confirm_action import validate_before_action
 
 
 class ExcelToolApp(ctk.CTk):
     def __init__(self):
 
-        def resource_path(relative_path):
-            if hasattr(sys, "_MEIPASS"):
-                return os.path.join(sys._MEIPASS, relative_path)
-            return os.path.join(os.path.abspath("."), relative_path)
+
 
         super().__init__()
 
@@ -27,7 +25,7 @@ class ExcelToolApp(ctk.CTk):
         self.wm_iconbitmap(resource_path("ai.ico"))
         self.title(f"{APP_NAME} v{VERSION}")
         self.geometry("600x520")
-        self.minsize(700, 620)
+        self.minsize(700, 650)
         # 控制器（邏輯交由 controller）
         self.controller = ExcelController(self)
         self.cancel_requested = False
@@ -57,7 +55,7 @@ class ExcelToolApp(ctk.CTk):
         # 日期輸入
         ctk.CTkLabel(top_frame, text="📅 最新科餘時間（民國年月）").grid(row=2, column=0, padx=5, pady=5)
         ctk.CTkLabel(top_frame, text="📅 製作科餘時間（民國年月）").grid(row=2, column=1, padx=5, pady=5)
-        ctk.CTkLabel(top_frame, text="🏢 統一編號").grid(row=2, column=2, padx=5, pady=5)
+        ctk.CTkLabel(top_frame, text="🏢 選取廠商").grid(row=2, column=2, padx=5, pady=5)
 
         # 變數宣告改成 MemoryEntry
         from gui.widgets.MemoryEntry import MemoryEntry  # 假設你把上次的 MemoryEntry 寫在這個檔案
@@ -70,9 +68,9 @@ class ExcelToolApp(ctk.CTk):
 
 
         # 🏢 統一編號記憶式下拉選單
-        from gui.widgets.memory_combobox import MemoryComboBox  # ← 確認有這行
+        from gui.widgets.memory_combobox import VendorConfigManager  # ← 確認有這行
 
-        self.tax_id_box = MemoryComboBox(top_frame, file_path="tax_id_memory.json")
+        self.tax_id_box = VendorConfigManager(top_frame, file_path="tax_id_memory.json")
         self.tax_id_box.grid(row=3, column=2, padx=5, sticky="w")
 
         # =====================
@@ -170,13 +168,27 @@ class ExcelToolApp(ctk.CTk):
             bottom_frame,
             height=200,
             wrap="word",
-            fg_color="#ffead0",  # 淺灰背景像 log viewer#f19c803b
-            text_color="#333333",  # 深灰文字
+            fg_color="#3f3a3a",
+            text_color="#ffffff",
             border_width=1,
             border_color="#CCCCCC"
         )
         self.log_text.pack(fill="both", expand=True, padx=5, pady=5)
         self.log_text.configure(state="disabled")
+
+        # ==========================================================
+        # 🟢 新增：底部版權字樣
+        # ==========================================================
+        # 假設您的版權資訊是 "© 2024 Your Company Name. All Rights Reserved."
+        copyright_text = f"© 2025 直誠管顧. Designed by spencer. All Rights Reserved. | {APP_NAME} v{VERSION}"
+        self.copyright_label = ctk.CTkLabel(
+            self,
+            text=copyright_text,
+            text_color="#888888",  # 柔和的灰色
+            font=ctk.CTkFont(size=11)
+        )
+        # pack 在主視窗底部，給予微小的邊距
+        self.copyright_label.pack(side="bottom", pady=(0, 5))
 
     def run_process(self):
         """GUI 觸發 → 呼叫控制器進行處理"""
