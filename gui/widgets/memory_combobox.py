@@ -20,13 +20,13 @@ DEFAULT_CONFIG_MODULES = [
     "財產目錄",
     "資產負債表",
     "綜合損益表",
-    "綜合損益表期別"
+    "綜合損益期別表"
 ]
 
 DEFAULT_CONFIG_TEMPLATE = {
     "module_options": {name: False for name in DEFAULT_CONFIG_MODULES},
     "input_folder": "",
-    # "output_folder": "",  <-- 已完全移除
+    # "output_folder": "",  <-- 已移除
     "vendor_name": "",
     "note": ""  # 備註欄位
 }
@@ -43,7 +43,7 @@ class VendorManagerWindow(ctk.CTkToplevel):
         self.title("廠商資料管理")
         self.geometry("900x700")
 
-        # 延遲載入 Icon
+        # Icon 設定 (延遲載入以避免錯誤)
         self.after(250, lambda: self._set_icon())
 
         self.attributes("-topmost", True)
@@ -83,12 +83,14 @@ class VendorManagerWindow(ctk.CTkToplevel):
         self.right_panel.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
         self.right_panel.grid_columnconfigure(1, weight=1)
 
+        # 1. 建立右側元件
         self._create_form_widgets()
 
+        # 2. 初始化
         self.radio_var = ctk.StringVar(value="")
         self._refresh_list()
 
-        # 預設選取邏輯
+        # 3. 預設選取
         if self.master_app.configs:
             first_id = sorted(self.master_app.configs.keys())[0]
             self.radio_var.set(first_id)
@@ -228,7 +230,7 @@ class VendorManagerWindow(ctk.CTkToplevel):
         # 載入
         self.entry_id.delete(0, "end")
         self.entry_id.insert(0, vid)
-        self.entry_id.configure(state="disabled")
+        self.entry_id.configure(state="normal")  # 允許修改 ID (更名)
 
         self.entry_name.delete(0, "end")
         self.entry_name.insert(0, cfg.get("vendor_name", ""))
@@ -276,25 +278,39 @@ class VendorManagerWindow(ctk.CTkToplevel):
                 messagebox.showerror("錯誤", "代號已存在")
                 return
             configs[vid] = new_data
-            self.master_app._save_configs()  # 存檔
+            self.master_app._save_configs()
             self._refresh_list()
             self._mode_view_edit(vid)
             self.master_app._refresh_combo()
-            self.master_app.current_vendor_id.set(vid)
+            self.master_app.select_id(vid)  # 自動選取剛新增的
             messagebox.showinfo("成功", "新增成功！")
 
         else:  # Edit mode
-            configs[self.editing_id] = new_data
-            self.master_app._save_configs()  # 存檔
+            if vid != self.editing_id:
+                if vid in configs:
+                    messagebox.showerror("錯誤", f"代號 '{vid}' 已存在，無法更名。")
+                    return
+                del configs[self.editing_id]
+                configs[vid] = new_data
+                self.editing_id = vid
+                msg = "更名並儲存成功！"
+            else:
+                configs[self.editing_id] = new_data
+                msg = "儲存成功！"
+
+            self.master_app._save_configs()
             self._refresh_list()
             self.radio_var.set(self.editing_id)
-            messagebox.showinfo("成功", "儲存成功！")
+            self.master_app._refresh_combo()
+            self.master_app.select_id(self.editing_id)  # 保持選取
+
+            messagebox.showinfo("成功", msg)
 
     def _delete(self):
         if not self.editing_id: return
         if messagebox.askyesno("確認", f"確定刪除 {self.editing_id} 嗎？"):
             del self.master_app.configs[self.editing_id]
-            self.master_app._save_configs()  # 存檔
+            self.master_app._save_configs()
             self.master_app._refresh_combo()
             self._refresh_list()
             self._mode_add_new()
@@ -312,6 +328,7 @@ class VendorConfigManager(ctk.CTkFrame):
         self.configs = self._load_configs()
         self.current_vendor_id = ctk.StringVar(value="")
         self.win_manager = None
+        self.display_map = {}  # 用於儲存顯示名稱到 ID 的對照表
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=0)
@@ -339,22 +356,61 @@ class VendorConfigManager(ctk.CTkFrame):
         else:
             self.win_manager = VendorManagerWindow(self)
 
+    # ⭐ 關鍵修改：更新下拉選單顯示邏輯
     def _refresh_combo(self):
+        self.display_map = {}  # 清空對照表
         ids = sorted(self.configs.keys())
-        if not ids:
+        display_list = []
+
+        for vid in ids:
+            name = self.configs[vid].get("vendor_name", "").strip()
+
+            # 決定顯示文字：有名字就顯示名字，沒有就顯示 ID
+            if name:
+                display_text = name
+                # 處理重複名稱：如果名字已存在，加上 (ID) 以示區別
+                if display_text in self.display_map:
+                    display_text = f"{name} ({vid})"
+            else:
+                display_text = vid
+
+            # 建立 "顯示文字" -> "真實ID" 的映射
+            self.display_map[display_text] = vid
+            display_list.append(display_text)
+
+        if not display_list:
             self.combo.configure(values=["(尚無資料)"])
             self.current_vendor_id.set("(尚無資料)")
         else:
-            self.combo.configure(values=ids)
-            if self.current_vendor_id.get() not in ids:
-                self.current_vendor_id.set(ids[0])
+            self.combo.configure(values=display_list)
+            # 確保目前的選擇有效，無效則選第一個
+            current_text = self.current_vendor_id.get()
+            if current_text not in display_list:
+                self.current_vendor_id.set(display_list[0])
 
     def _on_combo_change(self, value):
         self.current_vendor_id.set(value)
 
+    def _extract_id_from_text(self, text):
+        if not text or text == "(尚無資料)": return None
+        return self.display_map.get(text)  # 直接從 map 查 ID
+
     def get_current_id(self):
+        """從顯示文字反查真實 ID"""
         val = self.current_vendor_id.get()
-        return val if val != "(尚無資料)" else None
+        return self._extract_id_from_text(val)
+
+    # ⭐ 新增：相容舊版介面的 get() 方法
+    def get(self):
+        """提供給主程式的 getter (相容舊呼叫)，回傳真實 ID"""
+        return self.get_current_id()
+
+    def select_id(self, target_id):
+        """根據 ID 設定選單選中項 (供管理視窗呼叫)"""
+        for text, vid in self.display_map.items():
+            if vid == target_id:
+                self.current_vendor_id.set(text)
+                return
 
     # --- 資料存取 ---
 
@@ -385,7 +441,6 @@ class VendorConfigManager(ctk.CTkFrame):
             print(f"Config load error: {e}")
             return {}
 
-    # ⭐ 關鍵修正：手動建構字典，解決 deepcopy Tkinter 錯誤
     def _save_configs(self):
         serializable = {}
         for vid, cfg in self.configs.items():
@@ -411,7 +466,6 @@ class VendorConfigManager(ctk.CTkFrame):
         if not vid or vid not in self.configs:
             return None, None
 
-        # 存檔一次確保一致
         self._save_configs()
 
         src_cfg = self.configs[vid]
