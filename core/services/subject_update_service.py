@@ -304,13 +304,19 @@ class SubjectUpdateService:
             s.title.replace(" ", "").replace("　", ""): s.title
             for s in self.wb_values.worksheets if s.sheet_state == "visible"
         }
-
+        # 🔴【排除清單】這五個代號將被跳過餘額比對
+        EXCLUDED_CODES = ["1191", "1192", "1193", "1197", "1198"]
         if not latest_rows:
             msg = f"❌ 沒有符合條件的資料（<= {target_month}）"
             self._log(msg)
             return {"status": "error", "message": msg, "details": {}}
 
         for d_val, (ledger_row, ledger_date, ledger_i, ledger_c) in  sorted(latest_rows.items(), key=lambda x: int(x[1][3])) :
+
+            # 🔴【執行排除】檢查代號是否在排除清單內
+            if ledger_c in EXCLUDED_CODES:
+                self._log(f"ℹ️ 科目代號【{ledger_c}】已設定為排除，跳過餘額比對。")
+                continue
             # 這是分類帳上的科目名稱（已去除前後空白，但中間可能有空白）
             clean_name = d_val.replace(" ", "").replace("　", "")
 
@@ -376,7 +382,8 @@ class SubjectUpdateService:
     def _extract_subjects_from_balance(self, sheet):
         """從資產負債表中抓出項目代號與名稱"""
         subjects = {}
-
+        # 🔴【新增】排除代號清單 (這是資產負債表端篩選)
+        EXCLUDED_CODES = ["1191", "1192", "1193", "1197", "1198"]
         def clean(s):
             if not s:
                 return ""
@@ -407,10 +414,15 @@ class SubjectUpdateService:
             d_val = clean(row[3].value)
             e_val = clean(row[4].value)
 
+            # 🔴 修正：檢查代號是否在排除清單內
             if a_val.startswith(("1", "2")) and b_val:
-                subjects[b_val] = a_val
+                if a_val not in EXCLUDED_CODES:
+                    subjects[b_val] = a_val
+
+            # 🔴 修正：檢查代號是否在排除清單內
             if d_val.startswith(("1", "2")) and e_val:
-                subjects[e_val] = d_val
+                if d_val not in EXCLUDED_CODES:
+                    subjects[e_val] = d_val
 
         self._log(f"📘 共找到 {len(subjects)} 個項目：{list(subjects.values())[:5]}...")
         return subjects
