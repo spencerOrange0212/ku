@@ -13,6 +13,9 @@ from copy import copy
 from openpyxl.styles import PatternFill
 import pandas as pd
 
+from config.ConfigManager import CONFIG
+
+
 class SubjectUpdateService:
     """
     科目更新邏輯：
@@ -573,11 +576,24 @@ class SubjectUpdateService:
         base, ext = os.path.splitext(self.file_path)
         new_path = base + "_updated" + ext
 
-        self.wb.save(new_path)
-        self._log(f"💾 已另存新檔：{new_path}")
-        # # ------ 儲存 ------
-        # self.wb.save(self.file_path)
-        # self._log(f"💾 已儲存更新結果。")
+        # 1. 讀取 config.json 中的 overwrite 設定
+        # 預設為 False，較為安全
+        should_overwrite = CONFIG.get('file_handling.overwrite', default=False)
+
+        # 2. 判斷並執行對應的儲存動作
+        if should_overwrite:
+            # 執行覆蓋儲存 (Overwrite)
+
+            # 使用 self.file_path (原始路徑)
+            self.wb.save(self.file_path)
+            self._log(f"💾 已儲存更新結果：覆蓋原始檔案 ({os.path.basename(self.file_path)})")
+
+        else:
+            # 執行另存新檔 (Save As)
+
+            # 使用 new_path (計算出的新路徑)
+            self.wb.save(new_path)
+            self._log(f"💾 已另存新檔：{new_path}")
 
     # 分頁操作紀錄
     def _create_update_summary_sheet(self, updated_sheets, make_month, latest_month):

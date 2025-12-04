@@ -5,27 +5,25 @@ from tkinter import filedialog, messagebox
 import os, sys
 from customtkinter import CTkImage
 
-from config.settings import VERSION, APP_NAME
 from core.actions.confirm_action import do_actions_sequential
 from core.controllers.excel_controller import ExcelController
 from core.tool import resource_path
 from core.validators.confirm_action import validate_before_action
+from config.ConfigManager import CONFIG # 這是唯一需要的導入
 
+APP_NAME = CONFIG.get('app_settings.author', default="科餘自動化工具")
+VERSION = CONFIG.get('app_settings.version', default="0.0.0")
 
 class ExcelToolApp(ctk.CTk):
     def __init__(self):
-
-
-
         super().__init__()
-
         self.spinner_frames = None
         self.spinner_label = None
         self.spinner_running = False
         self.wm_iconbitmap(resource_path("ai.ico"))
         self.title(f"{APP_NAME} v{VERSION}")
         self.geometry("600x520")
-        self.minsize(700, 650)
+        self.minsize(700, 710)
         # 控制器（邏輯交由 controller）
         self.controller = ExcelController(self)
         self.cancel_requested = False
@@ -176,10 +174,7 @@ class ExcelToolApp(ctk.CTk):
         self.log_text.pack(fill="both", expand=True, padx=5, pady=5)
         self.log_text.configure(state="disabled")
 
-        # ==========================================================
-        # 🟢 新增：底部版權字樣
-        # ==========================================================
-        # 假設您的版權資訊是 "© 2024 Your Company Name. All Rights Reserved."
+
         copyright_text = f"© 2025 直誠管顧. Designed by spencer. All Rights Reserved. | {APP_NAME} v{VERSION}"
         self.copyright_label = ctk.CTkLabel(
             self,

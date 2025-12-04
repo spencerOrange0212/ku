@@ -1,0 +1,15 @@
+{
+  "app_settings": {
+    "version": "2.12.04.1",
+    "author": "科餘自動化工具"
+  },
+  "module_management": {
+    "1_download": false,
+    "2_insert": false,
+    "3_update": true,
+    "4_delete": true
+  },
+  "file_handling": {
+    "overwrite": true
+  }
+}

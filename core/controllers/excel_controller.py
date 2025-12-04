@@ -9,7 +9,7 @@ from core.services.path_service import PathService
 from core.services.excel_service import ExcelService
 from core.services.subject_paste_service import SubjectPasteService
 from core.services.subject_update_service import SubjectUpdateService
-
+from config.ConfigManager import CONFIG
 
 class ExcelController:
     """負責整合 GUI 事件與 Service"""
@@ -70,6 +70,10 @@ class ExcelController:
         執行「報表貼入科目」
         使用 do_actions_sequential 傳入的 file_path (科餘檔路徑) 作為貼入目標。
         """
+        # ★ 關鍵修改 1：JSON 狀態檢查
+        is_enabled = CONFIG.get('module_management.2_insert', default=False)
+        if not is_enabled:
+            raise Exception("❌ 模組 2_insert (報表貼入科目) 在設定檔中已停用，操作被拒絕。")
 
         # 1. 取得 GUI 參數
         master_file = file_path
@@ -127,6 +131,14 @@ class ExcelController:
         2️⃣ 若有錯誤 → raise 讓外層 thread 捕捉
         3️⃣ 若全部一致 → 進入下一步
         """
+        # ----------------------------------------------------------------------
+        # ★ 關鍵修改 2：JSON 狀態檢查
+        is_enabled = CONFIG.get('module_management.3_update', default=False)
+        if not is_enabled:
+            raise Exception("❌ 模組 3_update (科目更新) 在設定檔中已停用，操作被拒絕。")
+        # ----------------------------------------------------------------------
+
+
         service = SubjectUpdateService(
             file_path=file_path,
             logger=self.app.append_log,  # 寫 log 到 GUI
@@ -161,6 +173,13 @@ class ExcelController:
         - 依「更新清單_XXXX」工作表中的科目列表
         - 到各科目分頁進行摘要分組，若 F/G 加總相等則刪除
         """
+        # ----------------------------------------------------------------------
+        # ★ 關鍵修改 3：JSON 狀態檢查
+        is_enabled = CONFIG.get('module_management.4_delete', default=False)
+        if not is_enabled:
+            raise Exception("❌ 模組 4_delete (科目明細刪除) 在設定檔中已停用，操作被拒絕。")
+        # ----------------------------------------------------------------------
+
         make_month = self.app.make_var.get().strip()
         latest_month = self.app.latest_var.get().strip()
 
