@@ -228,7 +228,7 @@ class SubjectUpdateService:
             if i_val is None or str(i_val).strip() == "":
                 continue
 
-            matched_rows.append((row[0].row, float(i_val)))
+            matched_rows.append((row[0].row, i_val))
 
         if not matched_rows:
             return None, None, False
