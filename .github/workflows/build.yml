@@ -1,48 +1,56 @@
-name: 自動打包 EXE 發布
+name: Build EXE from Spec
 
-# 觸發條件：當您推送開頭是 "v" 的標籤 (例如 v1.0, v2.1) 時觸發
+# 觸發條件：當推送 v 開頭的標籤 (如 v1.0) 時觸發
 on:
   push:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    runs-on: windows-latest # 指定使用 Windows 電腦打包
+    runs-on: windows-latest
 
     steps:
-    # 1. 下載您的程式碼
+    # 1. 下載程式碼
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    # 2. 設定 Python 環境 (這裡設為 3.10 或您目前使用的版本)
+    # 2. 設定 Python (建議設定為與您開發環境相同的版本，例如 3.10, 3.11, 3.12)
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.12'
+        # ↑ 請確認這裡的版本跟您電腦上的一樣，避免相容性問題
 
-    # 3. 安裝您需要的套件
+    # 3. 安裝套件 (包含 PyInstaller 和您專案的依賴)
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
         pip install pyinstaller
+        # 如果您有 requirements.txt，請取消下面這行的註解
+        # pip install -r requirements.txt
+        # 如果沒有 requirements.txt，請手動列出您的套件，例如：
+        pip install customtkinter openpyxl pillow
 
-    # 4. 執行 PyInstaller 打包 (使用您的 spec 檔)
-    - name: Build EXE
-      run: pyinstaller --clean 科餘自動化工具.spec
+    # 4. ★ 關鍵步驟：使用您的 .spec 檔案進行打包
+    # 我們加上雙引號以防中文檔名出問題
+    - name: Build with PyInstaller
+      run: pyinstaller --clean "科餘自動化工具.spec"
 
-    # 5. 將 dist 裡面的資料夾壓縮成 ZIP (方便使用者下載)
-    # 注意：這裡的資料夾名稱要對應您 spec 檔裡面的 name
-    - name: Zip the Build
+    # 5. ★ 關鍵步驟：只把 dist 資料夾內的產物壓成 ZIP
+    # 我們使用 PowerShell 的 Compress-Archive 指令
+    - name: Zip the Output
       run: |
         cd dist
-        Compress-Archive -Path "科餘自動化工具_*" -DestinationPath "KuTool_Release.zip"
+        # 使用 * 萬用字元，自動抓取 spec 檔產生的資料夾名稱
+        Compress-Archive -Path "科餘自動化工具*" -DestinationPath "KuTool_Release.zip"
 
     # 6. 發布到 GitHub Releases
     - name: Create Release
       uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
       with:
         files: dist/KuTool_Release.zip
       env:
