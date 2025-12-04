@@ -1,8 +1,5 @@
 build/
 logs/
-dist/tax_id_memory.json
-dist/memory.json
-dist/logs
-
+dist
 tax_id_memory.json
 memory.json
