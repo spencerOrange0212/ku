@@ -21,10 +21,24 @@ class SubjectPasteService:
         self.app = app
 
     def _get_month_str(self, make_month: str) -> str:
-        """解析月份字串，例如 '11401' -> '01月'"""
+        """
+        解析月份字串，例如 '11401' -> '1月' (去除前導 0)
+        例如 '11412' -> '12月'
+        """
         if not make_month or len(make_month) < 2:
             return ""
-        return make_month[-2:] + "月"
+
+        # 1. 取得後兩位月份字串 (e.g., '01', '12')
+        month_str = make_month[-2:]
+
+        try:
+            # 2. 轉換為整數 (int() 會自動去除前導 0)，然後轉回字串
+            month_int = int(month_str)
+            # 3. 轉換回字串並加上 '月'
+            return str(month_int) + "月"
+        except ValueError:
+            # 如果後兩位無法轉為數字，則返回空字串 (以避免錯誤的資料夾路徑)
+            return ""
 
     # ==========================================
     # 1. 檔案搜尋與檢核工具
@@ -160,7 +174,8 @@ class SubjectPasteService:
              "dest_row_start": 1, "dest_col_start": 1, "check": None},
 
             # ⭐️ 新增任務：綜合損益表邊欄 (末兩欄, 貼入 Z1) ⭐️
-            {"module": "綜合損益期別表", "sheet": "綜合損益表-月份比較", "src_col_end": "SIDE_CROP_2", "dest_row_start": 1,
+            {"module": "綜合損益期別表", "sheet": "綜合損益表-月份比較", "src_col_end": "SIDE_CROP_2",
+             "dest_row_start": 1,
              "dest_col_start": 26, "check": None},
 
             # ⭐️ 6. 新任務：期別表負向索引邊欄 (貼入 AD/AE 欄) ⭐️
@@ -255,7 +270,7 @@ class SubjectPasteService:
 
             # 修正：由於標準報表是貼 A1，需要重新讀取確保 header=0
             # 避免 header=None 污染標準報表邏輯
-            df_final = pd.read_excel(file_path, header=0).iloc[:, :src_col_end]
+            df_final = pd.read_excel(file_path, header=None).iloc[:, :src_col_end]
 
         else:
             # 分類帳/財產目錄的邏輯：全貼
@@ -320,6 +335,7 @@ class SubjectPasteService:
             dest_col_start=config['dest_col_start'],
             max_col_limit=None
         )
+
     def _write_sheet_data_from_df(self, wb, df_source, sheet_name, dest_row_start, dest_col_start, max_col_limit=None):
         """
         底層寫入邏輯：處理清除、位移寫入 (基於已裁剪的 DataFrame)。

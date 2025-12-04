@@ -147,6 +147,20 @@ class SubjectUpdateService:
 
         return latest_rows, zero_items_but_kept
 
+    def _pad_subject_code(self, code: Any) -> str:
+        """
+        將科目代號 (C欄) 轉換為字串，並在右側補 0 到 6 碼。
+        例如 '1110' -> '111000'
+        """
+        try:
+            # 確保是字串並移除空白
+            code_str = str(code).strip()
+
+            # ⭐️ 關鍵修正：使用 ljust (Left Justify) 在右側補 '0' 到 6 碼 ⭐️
+            return code_str.ljust(6, '0')
+        except Exception:
+            # 作為安全備援，也使用 ljust 進行右側填充
+            return str(code).strip().ljust(6, '0')
     def _get_active_items(self, valid_rows):
         """
         傳回區間內所有「有明細」的科目名稱（d_val）
@@ -311,7 +325,7 @@ class SubjectUpdateService:
             self._log(msg)
             return {"status": "error", "message": msg, "details": {}}
 
-        for d_val, (ledger_row, ledger_date, ledger_i, ledger_c) in  sorted(latest_rows.items(), key=lambda x: int(x[1][3])) :
+        for d_val, (ledger_row, ledger_date, ledger_i, ledger_c) in  sorted(latest_rows.items(), key=lambda x: self._pad_subject_code(x[1][3])) :
 
             # 🔴【執行排除】檢查代號是否在排除清單內
             if ledger_c in EXCLUDED_CODES:

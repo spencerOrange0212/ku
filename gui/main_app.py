@@ -30,7 +30,7 @@ class ExcelToolApp(ctk.CTk):
         self.controller = ExcelController(self)
         self.cancel_requested = False
         self.create_widgets()
-
+        self.wm_attributes('-topmost', 0)
     def create_widgets(self):
         # =====================
         # 📂 頂部：匯入 Excel + 日期輸入

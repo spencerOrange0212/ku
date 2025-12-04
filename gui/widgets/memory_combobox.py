@@ -41,12 +41,27 @@ class VendorManagerWindow(ctk.CTkToplevel):
         super().__init__(master_app)
         self.master_app = master_app
         self.title("廠商資料管理")
-        self.geometry("900x700")
+        self.geometry("800x600")
+
+        # ----
+        # self.overrideredirect(True)
+        # self.bind('<Escape>', lambda e: self.destroy())
+        # # <Button-3> 代表滑鼠右鍵
+        # self.bind('<Button-3>', lambda e: self.destroy())
+        # 1. 連結父視窗 (確保跟隨父視窗最小化/還原)
+        # self.transient(master_app)
+
+        # 2. 鎖定輸入 (將所有鍵盤/滑鼠事件導向此視窗，主視窗操作會被鎖定)
+        self.grab_set()
+
+        # 3. 提升層級 (確保視窗立即顯示在最上層)
+        self.lift()
+        self.wm_attributes('-topmost', -0)
+        # ------
 
         # Icon 設定 (延遲載入以避免錯誤)
         self.after(250, lambda: self._set_icon())
 
-        self.attributes("-topmost", True)
 
         # 佈局：左 (1/3) 右 (2/3)
         self.grid_columnconfigure(0, weight=1)
@@ -65,6 +80,7 @@ class VendorManagerWindow(ctk.CTkToplevel):
         ctk.CTkLabel(self.left_panel, text="廠商列表", font=ctk.CTkFont(size=16, weight="bold")).grid(row=0, column=0,
                                                                                                       padx=10, pady=10,
                                                                                                       sticky="w")
+        # ⭐️ 修正：為 ScrollableFrame 明確指定深色背景或透明背景 ⭐️
 
         self.scroll_list = ctk.CTkScrollableFrame(self.left_panel)
         self.scroll_list.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
@@ -100,7 +116,7 @@ class VendorManagerWindow(ctk.CTkToplevel):
 
     def _set_icon(self):
         try:
-            self.iconbitmap(resource_path("ai.ico"))
+            self.wm_iconbitmap(resource_path("ai.ico"))
         except:
             pass
 
@@ -192,7 +208,7 @@ class VendorManagerWindow(ctk.CTkToplevel):
             btn.pack(anchor="w", padx=5, pady=5)
 
     def _browse(self, entry):
-        p = filedialog.askdirectory()
+        p = filedialog.askdirectory(parent=self)
         if p:
             entry.delete(0, "end")
             entry.insert(0, p)
@@ -258,7 +274,7 @@ class VendorManagerWindow(ctk.CTkToplevel):
     def _save(self):
         vid = self.entry_id.get().strip()
         if not vid:
-            messagebox.showwarning("錯誤", "廠商代號不能為空")
+            messagebox.showwarning("錯誤", "廠商代號不能為空", parent=self)
             return
 
         new_data = deepcopy(DEFAULT_CONFIG_TEMPLATE)
@@ -275,7 +291,7 @@ class VendorManagerWindow(ctk.CTkToplevel):
 
         if self.current_mode == "new":
             if vid in configs:
-                messagebox.showerror("錯誤", "代號已存在")
+                messagebox.showerror("錯誤", "代號已存在", parent=self)
                 return
             configs[vid] = new_data
             self.master_app._save_configs()
@@ -283,12 +299,12 @@ class VendorManagerWindow(ctk.CTkToplevel):
             self._mode_view_edit(vid)
             self.master_app._refresh_combo()
             self.master_app.select_id(vid)  # 自動選取剛新增的
-            messagebox.showinfo("成功", "新增成功！")
+            messagebox.showinfo("成功", "新增成功！", parent=self)
 
         else:  # Edit mode
             if vid != self.editing_id:
                 if vid in configs:
-                    messagebox.showerror("錯誤", f"代號 '{vid}' 已存在，無法更名。")
+                    messagebox.showerror("錯誤", f"代號 '{vid}' 已存在，無法更名。", parent=self)
                     return
                 del configs[self.editing_id]
                 configs[vid] = new_data
@@ -304,11 +320,11 @@ class VendorManagerWindow(ctk.CTkToplevel):
             self.master_app._refresh_combo()
             self.master_app.select_id(self.editing_id)  # 保持選取
 
-            messagebox.showinfo("成功", msg)
+            messagebox.showinfo("成功", msg, parent=self)
 
     def _delete(self):
         if not self.editing_id: return
-        if messagebox.askyesno("確認", f"確定刪除 {self.editing_id} 嗎？"):
+        if messagebox.askyesno("確認", f"確定刪除 {self.editing_id} 嗎？", parent=self):
             del self.master_app.configs[self.editing_id]
             self.master_app._save_configs()
             self.master_app._refresh_combo()
