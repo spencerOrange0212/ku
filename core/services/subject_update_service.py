@@ -52,13 +52,31 @@ class SubjectUpdateService:
     # 🔍 找出「分類帳」分頁
     # ---------------------------------------------------------
     def find_ledger_sheet(self) -> str:
-        """模糊搜尋「分類帳」分頁名稱（忽略全形／半形空白）"""
-        for name in self.wb_values.sheetnames:
+        """
+        精確搜尋「分類帳」分頁名稱 (忽略全形／半形空白)，
+        且只處理可見分頁。
+        """
+
+        # 遍歷所有工作表物件
+        for sheet in self.wb_values.worksheets:
+            # 1. 排除隱藏分頁
+            if sheet.sheet_state != 'visible':
+                continue
+
+            name = sheet.title
+
+            # 2. 移除所有空白 (無論全形或半形)
+            # 使用 .replace(" ", "").replace("　", "") 移除所有空白
             normalized = name.replace(" ", "").replace("　", "")
-            if "分類帳" in normalized:
+
+            # ⭐️ 3. 精確比對：必須等於 "分類帳" ⭐️
+            if normalized == "分類帳":
+                # 找到第一個符合條件的可見分頁名稱即回傳
                 return name
-        available = "、".join(self.wb_values.sheetnames)
-        raise ValueError(f"❌ 找不到『分類帳』工作表（目前分頁：{available}）")
+
+        # 找不到則丟出錯誤
+        available = "、".join([s.title for s in self.wb_values.worksheets if s.sheet_state == 'visible'])
+        raise ValueError(f"❌ 找不到『分類帳』工作表（目前可見分頁：{available}）")
 
     # ---------------------------------------------------------
     # 🧭 主函式
@@ -112,7 +130,7 @@ class SubjectUpdateService:
             d_val = d_val_raw
             i_val = float(row[8].value)
 
-            valid_rows.append((row_number, a_val, d_val, i_val,c_val))
+            valid_rows.append((row_number, a_val, d_val, i_val, c_val))
 
         return valid_rows
 
@@ -127,8 +145,8 @@ class SubjectUpdateService:
           - 若該項目存在於工作表 → 保留並標記
         """
         rows_by_item = defaultdict(list)
-        for row_number, a_val, d_val, i_val ,c_val in valid_rows:
-            rows_by_item[d_val].append((row_number, a_val, i_val,c_val))
+        for row_number, a_val, d_val, i_val, c_val in valid_rows:
+            rows_by_item[d_val].append((row_number, a_val, i_val, c_val))
 
         latest_rows = {}
         zero_items_but_kept = []
@@ -136,7 +154,7 @@ class SubjectUpdateService:
         for d_val, rows in rows_by_item.items():
             self._check_cancel()  # ⭐ 加這行
             rows.sort(key=lambda x: x[0])
-            row_number, a_val, i_val ,c_val= rows[-1]
+            row_number, a_val, i_val, c_val = rows[-1]
 
             if i_val is None or float(i_val) == 0:
                 if not self._check_item_in_sheet(d_val):
@@ -164,6 +182,7 @@ class SubjectUpdateService:
         except Exception:
             # 作為安全備援，也使用 ljust 進行右側填充
             return str(code).strip().ljust(6, '0')
+
     def _get_active_items(self, valid_rows):
         """
         傳回區間內所有「有明細」的科目名稱（d_val）
@@ -328,7 +347,9 @@ class SubjectUpdateService:
             self._log(msg)
             return {"status": "error", "message": msg, "details": {}}
 
-        for d_val, (ledger_row, ledger_date, ledger_i, ledger_c) in  sorted(latest_rows.items(), key=lambda x: self._pad_subject_code(x[1][3])) :
+        for d_val, (ledger_row, ledger_date, ledger_i, ledger_c) in sorted(latest_rows.items(),
+                                                                           key=lambda x: self._pad_subject_code(
+                                                                                   x[1][3])):
 
             # 🔴【執行排除】檢查代號是否在排除清單內
             if ledger_c in EXCLUDED_CODES:
@@ -353,7 +374,24 @@ class SubjectUpdateService:
                 continue
 
             sheet_row, sheet_i, same = self._compare_balance(ws, ledger_i, target_month)
+
+            # --- ⭐ 從這裡開始插入除錯程式碼 ⭐ ---
             if sheet_row is None or not same:
+                # 僅在找到分頁資料(sheet_row is not None)且餘額不符時，才印出數值
+                if sheet_row is not None:
+                    # 使用 self._log 統一輸出
+                    self._log(f"🔴 餘額不符報告：科目【{d_val}】")
+                    # ⭐ 新增：印出分類帳行號 ⭐
+                    self._log(f"  > 🔍 分類帳行號: {ledger_row}")
+                    self._log(f"  > 分類帳最新餘額 (期許值): {ledger_i:.2f}")
+                    self._log(f"  > 分頁最後餘額 (現值): {sheet_i:.2f}")
+                    self._log(f"  > 差異絕對值: {abs(ledger_i - sheet_i):.4f}")
+                    self._log(f"  > (註：容忍值為 0.001)")
+                else:
+                    self._log(f"🔴 餘額不符報告：科目【{d_val}】找不到任何有效資料列。")
+
+                # --- ⭐ 插入除錯程式碼結束 ⭐ ---
+
                 inconsistent.append(d_val)
 
         return self._compose_message(zero_items_but_kept, inconsistent, target_month)
@@ -401,6 +439,7 @@ class SubjectUpdateService:
         subjects = {}
         # 🔴【新增】排除代號清單 (這是資產負債表端篩選)
         EXCLUDED_CODES = ["1191", "1192", "1193", "1197", "1198"]
+
         def clean(s):
             if not s:
                 return ""
@@ -424,6 +463,7 @@ class SubjectUpdateService:
                     break  # 移除一次即可，避免重複
 
             return text
+
         # 可能要改
         for row in sheet.iter_rows(min_row=2):
             a_val = clean(row[0].value)

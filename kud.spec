@@ -34,7 +34,7 @@ app_name = '科餘自動化工具_Default'
 
 if config_data and 'app_settings' in config_data:
      version_str = config_data['app_settings'].get('version', 'V')
-     app_name = f"{config_data['app_settings'].get('author', '工具')}_{version_str.replace('.', '_')}"
+     app_name = f"{config_data['app_settings'].get('author'+'d', '工具d')}_{version_str.replace('.', '_')}"
 
 # 取得路徑
 SPEC_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
