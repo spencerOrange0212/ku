@@ -2,53 +2,28 @@
 
 import os
 import sys
-import json # ★ 新增：匯入 json 模組
+import datetime # 引入 datetime 模組
 
 # ----------------------------------------------------
-# 讀取設定檔並取得應用程式名稱
+# ⭐️ 核心修正：使用當前日期與時間（YYYYMMDD_HHMMSS） ⭐️
 # ----------------------------------------------------
-CONFIG_FILE = 'config/config.json'
+# 取得執行 PyInstaller 當下的日期和時間，並格式化為 YYYYMMDD_HHMMSS 字串
+current_datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+base_name = '科餘自動化工具' # 基礎名稱
 
+# 組合最終的 exe 名稱
+app_name = f"{base_name}_{current_datetime_str}"
+# 範例結果：科餘自動化工具_20251209_165215
 
-
-def load_config(file_path):
-    """安全地讀取 JSON 設定檔並返回其內容。"""
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        print(f"錯誤: 找不到設定檔 {file_path}")
-        return None
-    except json.JSONDecodeError:
-        print(f"錯誤: 設定檔 {file_path} 格式不正確")
-        return None
-    except Exception as e:
-        print(f"讀取設定檔時發生未知錯誤: {e}")
-        return None
-
-
-# 讀取設定檔
-config_data = load_config(CONFIG_FILE)
-# 預設名稱，以防讀取失敗
-app_name = '科餘自動化工具_Default'
-
-if config_data and 'app_settings' in config_data:
-    # 假設您希望使用 "科餘自動化工具" + "版本號" 作為名稱，但如果只想使用作者名稱，請調整路徑
-
-    # 方式二: 使用版本號組合名稱 (如果需要版本資訊)
-     version_str = config_data['app_settings'].get('version', 'V')
-     app_name = f"{config_data['app_settings'].get('author', '工具')}_{version_str.replace('.', '_')}"
-
-
-# 使用 sys.argv[0] 來獲取正在執行的指令碼路徑 (即 .spec 檔案的路徑)
+# ----------------------------------------------------
+# 檔案路徑與打包資料 (其餘部分不變)
+# ----------------------------------------------------
 SPEC_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 ICON_PATH = os.path.join(SPEC_DIR, "ai.ico")
 
-# 把 theme 資料夾一起打包進 exe
 datas = [
-    ('theme/orange.json', 'theme'),    # ← 這行確保 theme/orange.json 打包後會出現在 exe 裡的 theme 資料夾
-    (CONFIG_FILE, 'config'),
-    ('ai.ico', '.'),   # ★ 把 ai.ico 放進 exe 同層
+    ('theme/orange.json', 'theme'),
+    ('ai.ico', '.'),
 ]
 
 a = Analysis(

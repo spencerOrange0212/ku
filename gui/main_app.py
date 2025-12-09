@@ -10,9 +10,9 @@ from core.controllers.excel_controller import ExcelController
 from core.tool import resource_path
 from core.validators.confirm_action import validate_before_action
 from config.ConfigManager import CONFIG # 這是唯一需要的導入
+from gui.widgets.settings_window import SettingsWindow
 
-APP_NAME = CONFIG.get('app_settings.author', default="科餘自動化工具")
-VERSION = CONFIG.get('app_settings.version', default="0.0.0")
+
 
 class ExcelToolApp(ctk.CTk):
     def __init__(self):
@@ -21,7 +21,17 @@ class ExcelToolApp(ctk.CTk):
         self.spinner_label = None
         self.spinner_running = False
         self.wm_iconbitmap(resource_path("ai.ico"))
-        self.title(f"{APP_NAME} v{VERSION}")
+        # 1. 取得完整路徑 (e.g., C:\Path\科餘自動化工具_20251209_170124.exe)
+        full_path = sys.argv[0]
+
+        # 2. 取得檔案名稱 (e.g., 科餘自動化工具_20251209_170124.exe)
+        file_name_with_ext = os.path.basename(full_path)
+
+        # 3. 移除副檔名 .exe (e.g., 科餘自動化工具_20251209_170124)
+        app_title = os.path.splitext(file_name_with_ext)[0]
+
+        # 4. 設置視窗標題
+        self.title(app_title)
         self.geometry("600x520")
         self.minsize(700, 710)
         # 控制器（邏輯交由 controller）
@@ -49,6 +59,21 @@ class ExcelToolApp(ctk.CTk):
                                                                                                          column=1,
                                                                                                          padx=5)
         ctk.CTkButton(top_frame, text="🧹 清除檔案", command=self.controller.clear_excel).grid(row=1, column=2, padx=5)
+
+
+        self.settings_button = ctk.CTkButton(
+            top_frame,
+            text="⚙️",
+            command=self.open_settings_window,
+            fg_color="#4F4F4F",
+            hover_color="#696969",
+            width=100  # 縮小寬度
+        )
+        # 讓它位於第 0 列，與 Label 同行，並 sticky 到 'e' (東/右)
+        self.settings_button.grid(row=0, column=3, padx=10, pady=10, sticky="e")
+
+        # 確保頂部框架的第 3 欄可以擴展，將按鈕推到右邊
+        top_frame.grid_columnconfigure(3, weight=1)
 
         # 日期輸入
         ctk.CTkLabel(top_frame, text="📅 最新科餘時間（民國年月）").grid(row=2, column=0, padx=5, pady=5)
@@ -175,7 +200,7 @@ class ExcelToolApp(ctk.CTk):
         self.log_text.configure(state="disabled")
 
 
-        copyright_text = f"© 2025 直誠管顧. Designed by spencer. All Rights Reserved. | {APP_NAME} v{VERSION}"
+        copyright_text = f"© 2025 直誠管顧. Designed by spencer. All Rights Reserved. "
         self.copyright_label = ctk.CTkLabel(
             self,
             text=copyright_text,
@@ -185,6 +210,10 @@ class ExcelToolApp(ctk.CTk):
         # pack 在主視窗底部，給予微小的邊距
         self.copyright_label.pack(side="bottom", pady=(0, 5))
 
+    def open_settings_window(self):
+        """開啟設定視窗"""
+        # 假設您將 SettingsWindow 類別定義在當前檔案或已正確導入
+        SettingsWindow(self)
     def run_process(self):
         """GUI 觸發 → 呼叫控制器進行處理"""
         latest = self.latest_var.get()
