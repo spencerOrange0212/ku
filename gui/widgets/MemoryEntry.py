@@ -6,7 +6,7 @@ from tkinter import messagebox
 class MemoryEntry(ctk.CTkFrame):
     """可記憶的輸入框，會自動讀取/存檔同一 JSON 檔案的指定欄位"""
 
-    shared_file = "memory.json"  # 所有 MemoryEntry 共用檔案
+    shared_file = "config/memory.json"  # 所有 MemoryEntry 共用檔案
 
     def __init__(self, master, key, width=120, height=30, default="", **kwargs):
         """

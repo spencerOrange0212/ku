@@ -24,7 +24,8 @@ class SubjectDeleteService:
         self.file_path = file_path
         # 刪除需要真正的活體 workbook
         self.wb = load_workbook(file_path, data_only=False)
-
+        # ⭐️ 新增：用於可靠讀取計算值（例如 F/G 欄位）
+        self.wb_values = load_workbook(file_path, data_only=True)
         # logger：預設印到 console；若從 GUI 進來會是 app.append_log
         self.logger = logger or (lambda msg: print(msg))
         # app：用來支援「立即停止執行」的 cancel flag（可為 None）
@@ -138,7 +139,7 @@ class SubjectDeleteService:
         self._log(f"📌 更新清單中共有 {len(subjects)} 個科目需要檢查。")
         return subjects
 
-    # ---------- Step 2：處理單一科目分頁 ----------
+    # ---------- Step 2：處理單一科目分頁 (已修正：使用雙 Workbook 讀取計算值) ----------
 
     def _process_subject_sheet(self, subject_code: str):
         """
@@ -152,28 +153,36 @@ class SubjectDeleteService:
             self._log(f"⚠️ 找不到分頁「{subject_code}」，已略過。")
             return None
 
-        ws = self.wb[subject_code]
+        # ⭐️ 取得兩個工作表實例 ⭐️
+        ws_live = self.wb[subject_code]  # 用於刪除列 (Live Workbook)
+        ws_data = self.wb_values[subject_code]  # 用於讀取 F/G 數值 (Data_Only Workbook)
+
         self._log(f"🔎 開始檢查分頁：{subject_code}")
 
         # 摘要 → { "rows": [index...], "sum_f": float, "sum_g": float }
         groups = defaultdict(lambda: {"rows": [], "sum_f": 0.0, "sum_g": 0.0})
 
         # 1️⃣ 先掃描所有列，建立分組
-        for r in range(2, ws.max_row + 1):
+        # 由於讀取值是計算的基礎，使用 ws_data 的 max_row
+        for r in range(2, ws_data.max_row + 1):
             self._check_cancel()
 
-            remark = ws[f"E{r}"].value
+            # 摘要（E 欄）通常不會是公式，從 ws_live/ws_data 讀取皆可
+            remark = ws_data[f"E{r}"].value
             if remark is None or str(remark).strip() == "":
                 continue  # 沒摘要就不參與刪除判斷
 
             key = str(remark).strip()
 
-            f_val = ws[f"F{r}"].value
-            g_val = ws[f"G{r}"].value
+            # ⭐️ 關鍵修正：從 ws_data 讀取 F/G 欄位的值，確保取得的是計算結果 ⭐️
+            f_val = ws_data[f"F{r}"].value
+            g_val = ws_data[f"G{r}"].value
 
+            # 由於 ws_data 是 data_only=True 模式，f_val/g_val 應該是數字或 None
             try:
                 f_num = float(f_val) if f_val not in (None, "") else 0.0
             except Exception:
+                # 雖然不應該發生，但作為安全機制仍保留 try/except
                 f_num = 0.0
 
             try:
@@ -208,6 +217,7 @@ class SubjectDeleteService:
         rows_to_delete = sorted(set(rows_to_delete), reverse=True)
         for r in rows_to_delete:
             self._check_cancel()
-            ws.delete_rows(r, 1)
+            # ⭐️ 關鍵修正：使用 ws_live 執行刪除 ⭐️
+            ws_live.delete_rows(r, 1)
 
         return len(rows_to_delete)

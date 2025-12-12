@@ -337,7 +337,7 @@ class VendorManagerWindow(ctk.CTkToplevel):
 # ====================================================================
 
 class VendorConfigManager(ctk.CTkFrame):
-    def __init__(self, master, file_path="vendor_configs.json", width=250, height=40, **kwargs):
+    def __init__(self, master, file_path="config/tax_id_memory.json", width=250, height=40, **kwargs):
         super().__init__(master, width=width, height=height, **kwargs)
 
         self.file_path = file_path

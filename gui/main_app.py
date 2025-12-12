@@ -93,7 +93,7 @@ class ExcelToolApp(ctk.CTk):
         # 🏢 統一編號記憶式下拉選單
         from gui.widgets.memory_combobox import VendorConfigManager  # ← 確認有這行
 
-        self.tax_id_box = VendorConfigManager(top_frame, file_path="tax_id_memory.json")
+        self.tax_id_box = VendorConfigManager(top_frame, file_path="config/tax_id_memory.json")
         self.tax_id_box.grid(row=3, column=2, padx=5, sticky="w")
 
         # =====================
